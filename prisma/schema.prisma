@@ -1,0 +1,587 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Site Settings (key-value JSONB store) ──────────────────────────
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Auth & Users ───────────────────────────────────────────────────
+
+model User {
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  name                 String?
+  role                 UserRole  @default(PARENT)
+  passwordHash         String?
+  magicLinkToken       String?
+  magicLinkExpiry      DateTime?
+  emailVerified        Boolean   @default(false)
+  lastLoginAt          DateTime?
+  accessibilityPrefs   Json?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  family               Family?   @relation("FamilyParent")
+  instructorSections   ClassSection[] @relation("SectionInstructor")
+  sentMessages         Message[] @relation("MessageSender")
+  testimonials         Testimonial[]
+}
+
+enum UserRole {
+  MASTER_ADMIN
+  ADMIN
+  INSTRUCTOR
+  PARENT
+}
+
+// ─── Team Members (public About page) ───────────────────────────────
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  name      String
+  role      String
+  bio       String
+  photoUrl  String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+// ─── Testimonials ───────────────────────────────────────────────────
+
+model Testimonial {
+  id            String   @id @default(cuid())
+  authorName    String
+  authorUserId  String?
+  author        User?    @relation(fields: [authorUserId], references: [id])
+  text          String
+  rating        Int?
+  studentAge    String?
+  charterSchool String?
+  featured      Boolean  @default(false)
+  published     Boolean  @default(true)
+  photoUrl      String?
+  createdAt     DateTime @default(now())
+}
+
+// ─── FAQ ────────────────────────────────────────────────────────────
+
+model FaqEntry {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String
+  keywords  String[]
+  published Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Families ───────────────────────────────────────────────────────
+
+model Family {
+  id              String         @id @default(cuid())
+  parentUserId    String         @unique
+  parent          User           @relation("FamilyParent", fields: [parentUserId], references: [id])
+  lastName        String
+  phone           String?
+  address         String?
+  city            String?
+  state           String?
+  zip             String?
+  charterSchoolId String?
+  charterSchool   CharterSchool? @relation(fields: [charterSchoolId], references: [id])
+  referralCode    String?        @unique
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  students           Student[]
+  membership         Membership?
+  payments           Payment[]
+  charterFundBalances CharterFundBalance[]
+  messages           Message[]  @relation("MessageFamily")
+  newsletterSub      NewsletterSubscriber?
+}
+
+// ─── Students ───────────────────────────────────────────────────────
+
+model Student {
+  id                 String    @id @default(cuid())
+  familyId           String
+  family             Family    @relation(fields: [familyId], references: [id])
+  firstName          String
+  lastName           String
+  dateOfBirth        DateTime
+  gradeLevel         String
+  specialNeedsNotes  String?
+  allergies          String?
+  medicalNotes       String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  emergencyContacts  EmergencyContact[]
+  enrollments        Enrollment[]
+  waitlistEntries    Waitlist[]
+  attendance         Attendance[]
+
+  @@index([familyId])
+}
+
+model EmergencyContact {
+  id               String  @id @default(cuid())
+  studentId        String
+  student          Student @relation(fields: [studentId], references: [id])
+  name             String
+  relationship     String
+  phone            String
+  priority         Int     @default(1)
+  authorizedPickup Boolean @default(true)
+
+  @@index([studentId])
+}
+
+// ─── Locations ──────────────────────────────────────────────────────
+
+model Location {
+  id         String   @id @default(cuid())
+  name       String
+  address    String
+  city       String
+  state      String
+  zip        String
+  roomNumber String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  classSections ClassSection[]
+}
+
+// ─── Semesters ──────────────────────────────────────────────────────
+
+model Semester {
+  id                 String         @id @default(cuid())
+  name               String
+  slug               String         @unique
+  startDate          DateTime
+  endDate            DateTime
+  registrationOpen   DateTime?
+  registrationClose  DateTime?
+  status             SemesterStatus @default(UPCOMING)
+  createdAt          DateTime       @default(now())
+
+  classSections ClassSection[]
+}
+
+enum SemesterStatus {
+  UPCOMING
+  REGISTRATION_OPEN
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+// ─── Class Templates ────────────────────────────────────────────────
+
+model ClassTemplate {
+  id                 String        @id @default(cuid())
+  title              String
+  slug               String        @unique
+  description        String
+  category           SteamCategory
+  ageMin             Int
+  ageMax             Int
+  gradeMin           String
+  gradeMax           String
+  maxStudents        Int           @default(15)
+  priceInCents       Int
+  materialsNeeded    String?
+  prerequisites      String?
+  photoUrl           String?
+  videoPreviewUrl    String?
+  learningObjectives Json?
+  whatYouBuild       Json?
+  isActive           Boolean       @default(true)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  sections ClassSection[]
+}
+
+enum SteamCategory {
+  SCIENCE
+  TECHNOLOGY
+  ENGINEERING
+  ART
+  MATH
+  CHARACTER
+  FITNESS
+}
+
+// ─── Class Sections (specific time slots per semester) ───────────────
+
+model ClassSection {
+  id              String        @id @default(cuid())
+  templateId      String
+  template        ClassTemplate @relation(fields: [templateId], references: [id])
+  semesterId      String
+  semester        Semester      @relation(fields: [semesterId], references: [id])
+  locationId      String
+  location        Location      @relation(fields: [locationId], references: [id])
+  instructorId    String?
+  instructor      User?         @relation("SectionInstructor", fields: [instructorId], references: [id])
+  dayOfWeek       DayOfWeek
+  startTime       String
+  endTime         String
+  maxStudents     Int           @default(15)
+  spotsRemaining  Int           @default(15)
+  status          SectionStatus @default(OPEN)
+  createdAt       DateTime      @default(now())
+
+  enrollments    Enrollment[]
+  waitlistEntries Waitlist[]
+  attendance     Attendance[]
+
+  @@index([semesterId, dayOfWeek])
+  @@index([templateId, semesterId])
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+}
+
+enum SectionStatus {
+  OPEN
+  FULL
+  WAITLIST_ONLY
+  CLOSED
+  CANCELLED
+}
+
+// ─── Enrollment ─────────────────────────────────────────────────────
+
+model Enrollment {
+  id              String           @id @default(cuid())
+  studentId       String
+  student         Student          @relation(fields: [studentId], references: [id])
+  classSectionId  String
+  classSection    ClassSection     @relation(fields: [classSectionId], references: [id])
+  status          EnrollmentStatus @default(REGISTERED)
+  paymentMethod   PaymentMethod?
+  enrolledAt      DateTime         @default(now())
+  droppedAt       DateTime?
+  completedAt     DateTime?
+
+  charterEnrollment CharterEnrollment?
+  payments          Payment[]
+  deposit           Deposit?
+
+  @@unique([studentId, classSectionId])
+  @@index([classSectionId, status])
+}
+
+enum EnrollmentStatus {
+  REGISTERED
+  WAITLISTED
+  DROPPED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  SQUARE
+  CHARTER
+  CASH
+  CHECK
+  VENMO
+}
+
+// ─── Waitlist ───────────────────────────────────────────────────────
+
+model Waitlist {
+  id              String    @id @default(cuid())
+  studentId       String
+  student         Student   @relation(fields: [studentId], references: [id])
+  classSectionId  String
+  classSection    ClassSection @relation(fields: [classSectionId], references: [id])
+  position        Int
+  notifiedAt      DateTime?
+  expiredAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@unique([studentId, classSectionId])
+  @@index([classSectionId, position])
+}
+
+// ─── Charter Schools ────────────────────────────────────────────────
+
+model CharterSchool {
+  id                        String   @id @default(cuid())
+  name                      String
+  slug                      String   @unique
+  contactEmail              String?
+  contactPhone              String?
+  website                   String?
+  logoUrl                   String?
+  vendorStatus              VendorStatus @default(APPROVED)
+  paymentTermDays           Int      @default(30)
+  fundAllocationPerStudent  Int?
+  requiredForms             String?
+  notes                     String?
+  isActive                  Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  families           Family[]
+  charterEnrollments CharterEnrollment[]
+  charterInvoices    CharterInvoice[]
+  charterFundBalances CharterFundBalance[]
+}
+
+enum VendorStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+  INACTIVE
+}
+
+// ─── Charter Enrollment (PO tracking per enrollment) ────────────────
+
+model CharterEnrollment {
+  id                    String       @id @default(cuid())
+  enrollmentId          String       @unique
+  enrollment            Enrollment   @relation(fields: [enrollmentId], references: [id])
+  charterSchoolId       String
+  charterSchool         CharterSchool @relation(fields: [charterSchoolId], references: [id])
+  purchaseOrderNumber   String?
+  poStatus              PoStatus     @default(REQUESTED)
+  amountInCents         Int?
+  depositPaidViaSquare  Boolean      @default(false)
+  depositRefundedAt     DateTime?
+  notes                 String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  @@index([charterSchoolId, poStatus])
+}
+
+enum PoStatus {
+  REQUESTED
+  SUBMITTED
+  APPROVED
+  PAID
+  DENIED
+}
+
+// ─── Charter Fund Balance (per family per charter per year) ─────────
+
+model CharterFundBalance {
+  id              String        @id @default(cuid())
+  familyId        String
+  family          Family        @relation(fields: [familyId], references: [id])
+  charterSchoolId String
+  charterSchool   CharterSchool @relation(fields: [charterSchoolId], references: [id])
+  academicYear    String
+  totalAllocation Int
+  amountUsed      Int           @default(0)
+  amountPending   Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([familyId, charterSchoolId, academicYear])
+}
+
+// ─── Charter Invoices ───────────────────────────────────────────────
+
+model CharterInvoice {
+  id              String        @id @default(cuid())
+  charterSchoolId String
+  charterSchool   CharterSchool @relation(fields: [charterSchoolId], references: [id])
+  invoiceNumber   String        @unique
+  totalInCents    Int
+  status          InvoiceStatus @default(DRAFT)
+  sentAt          DateTime?
+  paidAt          DateTime?
+  dueAt           DateTime?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+// ─── Payments ───────────────────────────────────────────────────────
+
+model Payment {
+  id              String        @id @default(cuid())
+  familyId        String
+  family          Family        @relation(fields: [familyId], references: [id])
+  enrollmentId    String?
+  enrollment      Enrollment?   @relation(fields: [enrollmentId], references: [id])
+  amountInCents   Int
+  method          PaymentMethod
+  squarePaymentId String?
+  status          PaymentStatus @default(PENDING)
+  paidAt          DateTime?
+  refundedAt      DateTime?
+  notes           String?
+  createdAt       DateTime      @default(now())
+
+  @@index([familyId])
+  @@index([squarePaymentId])
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  REFUNDED
+  FAILED
+}
+
+// ─── Deposits (for charter-funded families awaiting PO) ─────────────
+
+model Deposit {
+  id              String        @id @default(cuid())
+  enrollmentId    String        @unique
+  enrollment      Enrollment    @relation(fields: [enrollmentId], references: [id])
+  amountInCents   Int           @default(2500)
+  paidVia         PaymentMethod
+  status          DepositStatus @default(HELD)
+  squarePaymentId String?
+  refundReason    String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+enum DepositStatus {
+  HELD
+  APPLIED
+  REFUNDED
+}
+
+// ─── Square Events (log-everything approach) ────────────────────────
+
+model SquareEvent {
+  id         String   @id @default(cuid())
+  eventId    String   @unique
+  eventType  String
+  merchantId String?
+  bolo       Boolean  @default(false)
+  payload    Json
+  processed  Boolean  @default(false)
+  receivedAt DateTime @default(now())
+}
+
+model SquarePayment {
+  id              String   @id @default(cuid())
+  squarePaymentId String   @unique
+  merchantId      String
+  amountCents     Int
+  tipCents        Int      @default(0)
+  netCents        Int
+  currency        String   @default("USD")
+  status          String
+  paidAt          DateTime
+  squareEventId   String?
+  source          String   @default("webhook")
+  rawPayload      Json?
+  createdAt       DateTime @default(now())
+}
+
+// ─── Membership ─────────────────────────────────────────────────────
+
+model Membership {
+  id              String           @id @default(cuid())
+  familyId        String           @unique
+  family          Family           @relation(fields: [familyId], references: [id])
+  type            String           @default("annual")
+  startDate       DateTime
+  endDate         DateTime
+  status          MembershipStatus @default(ACTIVE)
+  autoRenew       Boolean          @default(false)
+  squarePaymentId String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+enum MembershipStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+// ─── Communication ──────────────────────────────────────────────────
+
+model Message {
+  id         String      @id @default(cuid())
+  fromUserId String
+  fromUser   User        @relation("MessageSender", fields: [fromUserId], references: [id])
+  toFamilyId String?
+  toFamily   Family?     @relation("MessageFamily", fields: [toFamilyId], references: [id])
+  subject    String
+  body       String
+  readAt     DateTime?
+  type       MessageType @default(ANNOUNCEMENT)
+  createdAt  DateTime    @default(now())
+}
+
+enum MessageType {
+  ANNOUNCEMENT
+  DIRECT
+  SYSTEM
+}
+
+model NewsletterSubscriber {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  familyId     String?   @unique
+  family       Family?   @relation(fields: [familyId], references: [id])
+  isActive     Boolean   @default(true)
+  segments     Json?
+  subscribedAt DateTime  @default(now())
+}
+
+// ─── Attendance ─────────────────────────────────────────────────────
+
+model Attendance {
+  id              String           @id @default(cuid())
+  studentId       String
+  student         Student          @relation(fields: [studentId], references: [id])
+  classSectionId  String
+  classSection    ClassSection     @relation(fields: [classSectionId], references: [id])
+  date            DateTime
+  status          AttendanceStatus @default(PRESENT)
+  notes           String?
+  createdAt       DateTime         @default(now())
+
+  @@unique([studentId, classSectionId, date])
+  @@index([classSectionId, date])
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  EXCUSED
+  LATE
+}

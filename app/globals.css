@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+/* JKW Academy Design Tokens */
+@theme {
+  /* Brand Colors */
+  --color-navy: #1B2A4A;
+  --color-navy-light: #2A3D66;
+  --color-navy-dark: #0F1A30;
+  --color-gold: #C9A55C;
+  --color-gold-hover: #B8943F;
+  --color-gold-light: #E8D5A8;
+
+  /* STEAM Subject Accents */
+  --color-science: #4CAF50;
+  --color-technology: #2196F3;
+  --color-engineering: #FF9800;
+  --color-art: #E91E63;
+  --color-math: #9C27B0;
+  --color-character: #00BCD4;
+  --color-fitness: #FF5722;
+
+  /* UI Colors */
+  --color-background: #FAFBFC;
+  --color-foreground: #1A1A2E;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #1A1A2E;
+  --color-muted: #F1F3F5;
+  --color-muted-foreground: #6B7280;
+  --color-border: #E5E7EB;
+  --color-destructive: #DC2626;
+
+  /* Admin Dark Mode */
+  --color-sidebar: #0F1A30;
+  --color-sidebar-foreground: #E5E7EB;
+  --color-sidebar-accent: #1B2A4A;
+
+  /* Fonts */
+  --font-heading: "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* Base styles */
+body {
+  font-family: var(--font-body);
+  color: var(--color-foreground);
+  background-color: var(--color-background);
+}
+
+/* Accessibility: reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Accessibility: high contrast user preference */
+.high-contrast {
+  --color-foreground: #000000;
+  --color-background: #FFFFFF;
+  --color-border: #000000;
+  --color-muted-foreground: #333333;
+}
+
+/* Accessibility: dyslexia-friendly font */
+.dyslexia-font {
+  font-family: "OpenDyslexic", "Comic Sans MS", sans-serif !important;
+}
+
+/* Sensory-friendly mode */
+.sensory-friendly {
+  --color-gold: #8B7B4A;
+  --color-science: #3D8B40;
+  --color-technology: #1A75C2;
+  --color-engineering: #CC7A00;
+  --color-art: #B81650;
+  --color-math: #7B1FA2;
+}
